@@ -1,65 +1,64 @@
-// ✅ FILE: components/SydneyChat.tsx
-
-"use client";
-
 import { useState } from "react";
-import { v4 as uuid } from "uuid";
+import { useUser } from "@clerk/nextjs";
 
 export default function SydneyChat() {
-  const [messages, setMessages] = useState<any[]>([]);
+  const { user } = useUser();
   const [input, setInput] = useState("");
+  const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [sessionId] = useState(() => uuid());
 
   const sendMessage = async () => {
     if (!input.trim()) return;
+    const userMessage = {
+      role: "user",
+      content: input.trim(),
+    };
 
-    const newMessages = [...messages, { role: "user", content: input }];
-    setMessages(newMessages);
+    setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setLoading(true);
 
-    try {
-      const res = await fetch("/api/sydney", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: newMessages,
-          sessionId, // ✅ pass session ID
-        }),
-      });
+    const res = await fetch("/api/sydney", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages: [...messages, userMessage],
+        userId: user?.id ?? "guest",
+      }),
+    });
 
-      const data = await res.json();
-      setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
-    } catch (err) {
-      setMessages((prev) => [...prev, { role: "assistant", content: "Something went wrong." }]);
-    } finally {
-      setLoading(false);
-    }
+    const data = await res.json();
+    const botMessage = { role: "assistant", content: data.reply };
+    setMessages((prev) => [...prev, botMessage]);
+    setLoading(false);
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-4 space-y-4">
-      <div className="border rounded p-4 min-h-[300px] space-y-2 bg-white">
-        {messages.map((msg, idx) => (
-          <div
-            key={idx}
-            className={
-              msg.role === "user"
-                ? "text-right text-blue-600"
-                : "text-left text-gray-800"
-            }
-          >
-            {msg.content}
+    <div className="flex flex-col max-w-2xl mx-auto mt-10 p-4 border rounded-xl shadow-md">
+      <div className="text-xl font-bold mb-4">Sydney</div>
+      <div className="flex flex-col gap-2 mb-4 max-h-[300px] overflow-y-auto">
+        {messages.map((msg, i) => (
+          <div key={i} className={msg.role === "user" ? "text-right" : "text-left"}>
+            <span
+              className={`inline-block px-3 py-2 rounded-lg max-w-[80%] ${
+                msg.role === "user" ? "bg-blue-600 text-white" : "bg-gray-200 text-black"
+              }`}
+            >
+              {msg.content}
+            </span>
           </div>
         ))}
-        {loading && <div className="text-gray-400">Sydney is typing...</div>}
+        {loading && (
+          <div className="text-left">
+            <span className="inline-block px-3 py-2 bg-gray-100 rounded-lg text-gray-600">
+              Sydney is typing...
+            </span>
+          </div>
+        )}
       </div>
-
       <div className="flex gap-2">
         <input
-          type="text"
-          className="flex-1 border rounded px-3 py-2"
+          className="flex-1 p-2 border rounded-lg"
           placeholder="Talk to Sydney..."
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -67,7 +66,8 @@ export default function SydneyChat() {
         />
         <button
           onClick={sendMessage}
-          className="bg-blue-600 text-white px-4 py-2 rounded"
+          disabled={loading}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
         >
           Send
         </button>
