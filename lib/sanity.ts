@@ -1,9 +1,9 @@
-import { createClient } from '@sanity/client'
+import { createClient } from '@sanity/client';
 
 export const sanity = createClient({
-  projectId: 'hh0bz47b', 
-  dataset: 'production',
-  apiVersion: '2024-03-29',
-  useCdn: false,           
-  token: process.env.SANITY_API_TOKEN,
-})
+  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID,
+  dataset: process.env.NEXT_PUBLIC_SANITY_DATASET,
+  useCdn: process.env.NODE_ENV === 'production',
+  apiVersion: '2023-03-25',
+  token: process.env.SANITY_API_TOKEN, // Ensure this is set if mutations are performed
+});
