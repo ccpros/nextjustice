@@ -9,10 +9,11 @@ import { v4 as uuid } from "uuid";
 
 
 export async function POST(req: Request) {
-  const auth = req.headers.get("authorization");
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  const authHeader = req.headers.get("authorization") || "";
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  console.log("🔥 Cron job authorized");
 
   try {
     // Step 1: Get distinct users with recent memory
