@@ -1,5 +1,3 @@
-// app/api/memory/summarize-all/route.ts
-
 import { NextResponse } from "next/server";
 import { sanity } from "@/lib/sanity";
 import { groq as groqClient } from "@/lib/groq";
@@ -14,37 +12,45 @@ export async function POST(req: Request) {
   console.log("🔥 Cron job authorized");
 
   try {
-    // Step 1: Get distinct users
+    console.log("🚀 Starting Cron Job");
+
     const users = await sanity.fetch(
       `*[_type == "chatMemory" && !archived] {
         "userId": userId
       }`
     );
-
     const uniqueUserIds = [...new Set(users.map((u: any) => u.userId))];
-    console.log(`👥 Found ${uniqueUserIds.length} unique users with memory.`);
+    console.log("🧠 Unique users with memory:", uniqueUserIds);
 
-    // Step 2: Summarize each user's memory
+    if (uniqueUserIds.length === 0) {
+      console.warn("⚠️ No users with unarchived memory found. Exiting early.");
+      return NextResponse.json({ success: true, message: "No memory to summarize." });
+    }
+
     for (const userId of uniqueUserIds) {
-      console.log(`🔄 Processing user: ${userId}`);
-
       const memories = await sanity.fetch(
         `*[_type == "chatMemory" && userId == $userId && !archived] | order(lastUpdated asc)[0..2]`,
         { userId }
       );
 
-      const combinedMessages = memories
-        .flatMap((m: any) =>
-          m.messages.map((msg: any) => `${msg.role}: ${msg.content}`).join("\n")
-        )
-        .join("\n\n");
+      console.log(`👤 [${userId}] Memory documents:`, memories.length);
 
-      if (!combinedMessages) {
-        console.log(`⚠️ No messages to summarize for user: ${userId}`);
+      if (!memories.length) {
+        console.log(`⏭️ [${userId}] No memory entries to summarize.`);
         continue;
       }
 
-      const res = await groqClient.chat.completions.create({
+      const combinedMessages = memories
+        .flatMap((m: any) => m.messages)
+        .map((msg: any) => `${msg.role}: ${msg.content}`)
+        .join("\n");
+
+      if (!combinedMessages) {
+        console.log(`⏭️ [${userId}] No message content to summarize.`);
+        continue;
+      }
+
+      const summaryRes = await groqClient.chat.completions.create({
         model: "llama3-8b-8192",
         messages: [
           {
@@ -60,10 +66,14 @@ export async function POST(req: Request) {
         max_tokens: 1024,
       });
 
-      const summary = res.choices?.[0]?.message?.content || "";
-      console.log(`🧠 Summary for user ${userId}:\n${summary.slice(0, 100)}...`);
+      const summary = summaryRes.choices?.[0]?.message?.content;
+      console.log(`📝 [${userId}] Generated Summary:\n`, summary);
 
-      // Save summary to long-term memory
+      if (!summary) {
+        console.warn(`❌ [${userId}] Empty summary returned.`);
+        continue;
+      }
+
       await sanity.create({
         _type: "longTermMemory",
         _id: `ltm-${uuid()}`,
@@ -73,19 +83,17 @@ export async function POST(req: Request) {
         createdAt: new Date().toISOString(),
       });
 
-      console.log(`✅ Saved long-term memory for ${userId}`);
+      console.log(`✅ [${userId}] Summary saved to long-term memory.`);
 
-      // Archive original memory entries
       for (const memory of memories) {
         await sanity.patch(memory._id).set({ archived: true }).commit();
+        console.log(`📦 [${userId}] Archived memory ${memory._id}`);
       }
-
-      console.log(`📦 Archived ${memories.length} memory items for ${userId}`);
     }
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("❌ Auto-summary error:", err);
+    console.error("Auto-summary error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
