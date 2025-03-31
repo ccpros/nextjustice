@@ -9,6 +9,8 @@ import FileTree from "./components/FileTree";
 
 export default function CommandDashboard() {
   const { user, isLoaded } = useUser();
+  const [selectedFilePath, setSelectedFilePath] = useState<string>("");
+
 
   useEffect(() => {
     if (isLoaded && !user) {
@@ -21,12 +23,10 @@ export default function CommandDashboard() {
 
   if (!isLoaded || !user) return null;
 
-  function setSelectedFilePath(filePath: string) {
-    throw new Error("Function not implemented.");
-  }
+ 
 
   return (
-    <div className="min-h-screen bg-black text-white font-mono">
+    <div className="h-[calc(100vh-8rem)] bg-black text-white font-mono">
       {/* 🔷 NAVBAR at top */}
       <NavBar onChangeView={setView} />
 
@@ -34,7 +34,7 @@ export default function CommandDashboard() {
       <div className="flex">
         {/* Left Sidebar */}
         {/* Left Sidebar */}
-<aside className="w-64 bg-gray-800 border-r border-gray-700 h-[calc(100vh-4rem)] p-4 overflow-y-auto">
+<aside className="w-64 bg-gray-800 border-r border-gray-700 h-[calc(100vh-8rem)] p-4 overflow-y-auto">
   <p className="text-sm text-gray-400 mb-2">Navigation</p>
   <ul className="space-y-2 mb-4">
     <li className="hover:text-blue-400 cursor-pointer" onClick={() => setView("default")}>🧠 Systems</li>
@@ -54,13 +54,14 @@ export default function CommandDashboard() {
   }}
 />
 
+
     </>
   )}
 </aside>
 
 
         {/* Central Panel */}
-        <main className="flex-1 h-[calc(100vh-4rem)] overflow-y-auto p-6 bg-gradient-to-br from-gray-900 to-black">
+        <main className="flex-1 h-[calc(100vh-8rem)] overflow-y-auto p-6 bg-gradient-to-br from-gray-900 to-black">
           {view === "default" && (
             <div className="border border-gray-700 rounded-xl p-6 bg-black/40 shadow-inner">
               <h2 className="text-2xl font-semibold mb-4">Central Interface</h2>
@@ -71,12 +72,12 @@ export default function CommandDashboard() {
           )}
 
           {view === "code" && (
-            <CodingConsole code={code} setCode={setCode} activeView={view} />
+            <CodingConsole code={code} setCode={setCode} selectedFilePath={selectedFilePath} activeView={view} />
           )}
         </main>
 
         {/* Right Sidebar */}
-        <aside className="w-64 bg-gray-800 border-l border-gray-700 h-[calc(100vh-4rem)] p-4">
+        <aside className="w-64 bg-gray-800 border-l border-gray-700 h-[calc(100vh-8rem)] p-4">
           <p className="text-sm text-gray-400 mb-2">Status</p>
           <ul className="space-y-2">
             <li>🟢 AI: Online</li>

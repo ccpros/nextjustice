@@ -1,18 +1,19 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const { repo, branch = "main", path } = await req.json();
+    const { repo, branch, path } = await req.json();
+    const res = await fetch(
+      `https://raw.githubusercontent.com/${repo}/${branch}/${path}`
+    );
 
-    const res = await fetch(`https://raw.githubusercontent.com/${repo}/${branch}/${path}`);
     if (!res.ok) {
-      throw new Error(`GitHub fetch failed with status ${res.status}`);
+      return NextResponse.json({ error: "Failed to load file" }, { status: res.status });
     }
 
     const content = await res.text();
     return NextResponse.json({ success: true, content });
-  } catch (err: any) {
-    console.error("Load file error:", err);
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
