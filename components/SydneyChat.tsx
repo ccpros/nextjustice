@@ -1,77 +1,133 @@
-import { useState } from "react";
+"use client";
+
+import { useEffect, useRef, useState, FormEvent } from "react";
+import { v4 as uuid } from "uuid";
 import { useUser } from "@clerk/nextjs";
+import { Loader } from "lucide-react";
+
+type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
 
 export default function SydneyChat() {
-  const { user } = useUser();
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
+  const chatRef = useRef<HTMLDivElement | null>(null);
+  const sessionId = useRef(uuid());
+  const { user } = useUser();
 
-  const sendMessage = async () => {
+  const scrollToBottom = () => {
+    if (chatRef.current) {
+      chatRef.current.scrollTop = chatRef.current.scrollHeight;
+    }
+  };
+
+  useEffect(scrollToBottom, [messages]);
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     if (!input.trim()) return;
-    const userMessage = {
-      role: "user",
-      content: input.trim(),
-    };
 
-    setMessages((prev) => [...prev, userMessage]);
+    const userMessage: ChatMessage = { role: "user", content: input };
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
     setInput("");
     setLoading(true);
 
-    const res = await fetch("/api/sydney", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messages: [...messages, userMessage],
-        userId: user?.id ?? "guest",
-      }),
-    });
+    try {
+      const res = await fetch("/api/sydney", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: newMessages }),
+      });
 
-    const data = await res.json();
-    const botMessage = { role: "assistant", content: data.reply };
-    setMessages((prev) => [...prev, botMessage]);
-    setLoading(false);
+      const data = await res.json();
+      const assistantMessage: ChatMessage = {
+        role: "assistant",
+        content: data.reply,
+      };
+
+      const updatedMessages = [...newMessages, assistantMessage];
+      setMessages(updatedMessages);
+
+      await fetch("/api/save-memory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user?.id || "guest",
+          sessionId: sessionId.current,
+          messages: updatedMessages,
+        }),
+      });
+    } catch (err) {
+      console.error("Sydney error:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="flex flex-col max-w-2xl mx-auto mt-10 p-4 border rounded-xl shadow-md">
-      <div className="text-xl font-bold mb-4">Sydney</div>
-      <div className="flex flex-col gap-2 mb-4 max-h-[300px] overflow-y-auto">
-        {messages.map((msg, i) => (
-          <div key={i} className={msg.role === "user" ? "text-right" : "text-left"}>
-            <span
-              className={`inline-block px-3 py-2 rounded-lg max-w-[80%] ${
-                msg.role === "user" ? "bg-blue-600 text-white" : "bg-gray-200 text-black"
-              }`}
+    <main className="flex flex-col min-h-screen bg-white">
+      {/* HEADER */}
+      <header className="px-6 py-4 border-b text-center font-semibold text-xl">
+        Welcome to Sydney
+      </header>
+
+      {/* CHAT CENTER */}
+      <div className="flex-1 flex items-center justify-center">
+        <div className="flex flex-col w-full max-w-2xl border rounded-md shadow bg-white h-[500px]">
+          <div
+            ref={chatRef}
+            className="flex-1 min-h-[300px] overflow-y-auto p-4 space-y-3 bg-gray-100 rounded-t-md"
+          >
+            {messages.map((msg, i) => (
+              <div
+                key={i}
+                className={`p-3 rounded-md max-w-xl whitespace-pre-line ${
+                  msg.role === "user"
+                    ? "bg-blue-600 text-white ml-auto"
+                    : "bg-white text-black"
+                }`}
+              >
+                {msg.content}
+              </div>
+            ))}
+            {loading && (
+              <div className="text-gray-500 italic flex items-center space-x-2">
+                <Loader className="animate-spin" size={20} />
+                <span>Sydney is thinking...</span>
+              </div>
+            )}
+          </div>
+
+          <form
+            onSubmit={handleSubmit}
+            className="flex items-center gap-2 p-3 border-t"
+          >
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Talk to Sydney..."
+              className="flex-1 px-4 py-2 border rounded-md"
+            />
+            <button
+              type="submit"
+              className="bg-black text-white px-4 py-2 rounded disabled:opacity-50"
+              disabled={loading || !input.trim()}
             >
-              {msg.content}
-            </span>
-          </div>
-        ))}
-        {loading && (
-          <div className="text-left">
-            <span className="inline-block px-3 py-2 bg-gray-100 rounded-lg text-gray-600">
-              Sydney is typing...
-            </span>
-          </div>
-        )}
+              Send
+            </button>
+          </form>
+        </div>
       </div>
-      <div className="flex gap-2">
-        <input
-          className="flex-1 p-2 border rounded-lg"
-          placeholder="Talk to Sydney..."
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-        />
-        <button
-          onClick={sendMessage}
-          disabled={loading}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-        >
-          Send
-        </button>
-      </div>
-    </div>
+
+      {/* FOOTER */}
+      <footer className="px-6 py-4 border-t text-center text-sm text-gray-500">
+        © {new Date().getFullYear()} CCPROS — Sydney AI
+      </footer>
+    </main>
   );
 }

@@ -33,7 +33,7 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return ( 
-  //  <ClerkProvider>
+  <ClerkProvider>
     <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
       <body className="font-sans bg-brand-light text-brand">
         <Navbar />
@@ -42,6 +42,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         
       </body>
     </html>
- //   </ClerkProvider>
+   </ClerkProvider>
   );
 }
